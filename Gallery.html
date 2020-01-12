@@ -40,10 +40,12 @@
 					if (holdCylinder) {
 
 						cylinder.rotation.y += deltaMouseX * Math.PI/2;
+						//NormalizeRotation();
 
 					}
 
 					mouseX = newMouseX;
+					NormalizeRotation();
 
 				}, false)
 			
@@ -110,10 +112,13 @@
 
 				domEvents.addEventListener(cylinder, 'mousedown', event => GrabCylinder(cylinder));
 				domEvents.addEventListener(cylinder, 'mouseup', event => LetGoOfCylinder(cylinder));
+				domEvents.addEventListener(cylinder, 'mouseover', event => {
+					console.log(cylinder.rotation.y);
+				});
 				document.addEventListener('mouseup', event => LetGoOfCylinder(cylinder));
 
-				domEvents.addEventListener(cylinder, 'touchstart', event => GrabCylinder(cylinder));
-				domEvents.addEventListener(cylinder, 'touchend', event => LetGoOfCylinder(cylinder));
+				//domEvents.addEventListener(cylinder, 'touchstart', event => GrabCylinder(cylinder));
+				//domEvents.addEventListener(cylinder, 'touchend', event => LetGoOfCylinder(cylinder));
 				//domEvents.addEventListener(cylinder, 'touchcancel', event => LetGoOfCylinder(cylinder));
 
 			}
@@ -235,37 +240,56 @@
 			function LetGoOfCylinder(cylinder){
 				//console.log(cylinder);
 				//gsap.to(cylinder.rotation, 2, {y : cylinder.rotation.y + 1, ease: Expo.easeOut});
+				NormalizeRotation();
 				holdCylinder = false;
 				var angle = (1 / (gallery.length/2)) * Math.PI;
 				var cylinderDestination = Math.round(cylinder.rotation.y / angle) * angle;
-				gsap.to(cylinder.rotation, 0.5, {y : cylinderDestination, ease: Expo.easeOut});
-				console.log(cylinder.rotation.y);
+				gsap.to(cylinder.rotation, 0.5, {y : cylinderDestination, ease: Expo.easeOut, onComplete: NormalizeRotation()});
+				console.log(cylinderDestination);
 			}
 
 			function ZoomSwap(card){
-				console.log(Math.PI - Math.abs( Math.abs(cylinder.rotation.y - (card.name *1.0)) - Math.PI));
+				//console.log(Math.PI - Math.abs( Math.abs(cylinder.rotation.y - (card.name *1.0)) - Math.PI));
 				if (zoom){
 					Unzoom();
 					//gsap.to(cylinder.rotation, 0.5, {y : card.name * -1, ease: Expo.easeOut});
 				}
 				else{
 					if (Math.abs(Math.PI - Math.abs( Math.abs(-cylinder.rotation.y - (card.name *1.0)) - Math.PI)) < 0.01) Zoom()
-					else gsap.to(cylinder.rotation, 0.5, {y :  -1 * card.name, ease: Expo.easeOut});
+					else if (Math.abs(Math.PI - Math.abs( Math.abs(-cylinder.rotation.y - (card.name *1.0)) - Math.PI)) <= Math.abs(Math.PI - Math.abs( Math.abs(-cylinder.rotation.y - (card.name *1.0) - Math.PI*2) - Math.PI))){
+						NormalizeRotation();
+						gsap.to(cylinder.rotation, 0.5, {y :  -1 * card.name + Math.PI * 2, ease: Expo.easeOut, onComplete: NormalizeRotation()});
+					}else{
+						NormalizeRotation();
+						gsap.to(cylinder.rotation, 0.5, {y :  -1 * card.name + Math.PI * 2, ease: Expo.easeOut, onComplete: NormalizeRotation()});
+					}
 				}
 			}
 
 			function Unzoom (){
-				gsap.to(camera.position, 0.5, {z : radius * Math.sqrt(3) + Math.PI , ease: Expo.easeOut});
+				NormalizeRotation();
+				gsap.to(camera.position, 0.5, {z : radius * Math.sqrt(3) + Math.PI , ease: Expo.easeOut, onComplete: NormalizeRotation()});
 				camera.fov = Math.atan( Math.tan( 60 * Math.PI / 360 ) / camera.aspect ) * 360 / Math.PI;
 				camera.updateProjectionMatrix();
 				zoom = false;
 			}
 
 			function Zoom(){
-				gsap.to(camera.position, 0.5, {z : radius + 6.53, ease: Expo.easeOut});
+				NormalizeRotation();
+				gsap.to(camera.position, 0.5, {z : radius + 6.53, ease: Expo.easeOut, onComplete: NormalizeRotation()});
 				camera.fov = 30;
 				camera.updateProjectionMatrix();
 				zoom = true;
+			}
+
+			function NormalizeRotation(){
+				if (Math.abs(cylinder.rotation.y) <= 0.01) cylinder.rotation.y = 0;
+				if (Math.abs(Math.PI - Math.abs( Math.abs(-cylinder.rotation.y - (Math.PI *2)) - Math.PI)) < 0.01) cylinder.rotation.y = 0;
+				while (cylinder.rotation.y < 0) cylinder.rotation.y = cylinder.rotation.y + Math.PI * 2;
+				while (cylinder.rotation.y > Math.PI *2) cylinder.rotation.y = cylinder.rotation.y - Math.PI * 2;
+				if (Math.abs(cylinder.rotation.y) <= 0.01) cylinder.rotation.y = 0;
+				if (Math.abs(Math.PI - Math.abs( Math.abs(-cylinder.rotation.y - (Math.PI *2)) - Math.PI)) < 0.01) cylinder.rotation.y = 0;
+				console.log("normalized");
 			}
 		</script>
 	</body>
