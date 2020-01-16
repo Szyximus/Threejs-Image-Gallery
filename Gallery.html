@@ -6,24 +6,23 @@
 		<link type="text/css" rel="stylesheet" href="main.css">
 	</head>
 	<body>
-		<script src="js/three.js"></script>
+		<script src="js/three.min.js"></script>
 		<script src="js/OrbitControls.js"></script>
 		<script src="js/LightProbeGenerator.js"></script>
 		<script src="js/gsap.min.js"></script>
 		<script src="js/EasePack.min.js"></script>
 		<script src="js/EaselPlugin.min.js"></script>
 		<script src="js/threex.domevents.js"></script>
+		<script src="js/GLTFLoader.js"></script>
 		<!--<script src="js/Draggable.js"></script>-->
 
 		<script>
 			
 
-			var scene, camera, renderer, env, cylinder, lightProbe, photos, domEvents, selected, radius, holdCylinder, mouseX;
-			var zoom = false;
+			var scene, camera, renderer, env, cylinder, lightProbe, photos, domEvents, selected, radius, mouseX, mouseY, rouletteModel,handle,deltaMouseX,deltaMouseY,holdPower,ball;
+			var zoom, holdCylinder, holdHandle, isSpinning = false;
 			var gallery = [];
-			
-
-			
+		
 			Init();
 			LoadPhotoList();
 			
@@ -34,18 +33,28 @@
 			//CylinderControls:
 			document.addEventListener('mousemove', function(event){
 					var newMouseX	= (event.clientX / window.innerWidth ) - 0.5;
+					var newMouseY	= (event.clientY/ window.innerHeight ) - 0.5;
 
-					var deltaMouseX = newMouseX - mouseX;
+					deltaMouseX = newMouseX - mouseX;
+					deltaMouseY = newMouseY - mouseY;
 
-					if (holdCylinder) {
+					if (holdCylinder & !isSpinning) {
 
 						cylinder.rotation.y += deltaMouseX * Math.PI/2;
 						//NormalizeRotation();
 
 					}
+					if (holdHandle & !isSpinning) {
+
+						cylinder.rotation.y += deltaMouseX * Math.PI/2;
+						holdPower += deltaMouseX;
+
+					}
 
 					mouseX = newMouseX;
-					NormalizeRotation();
+					mouseY = newMouseY;
+					console.log(isSpinning);
+					//NormalizeRotation();
 
 				}, false)
 			
@@ -57,6 +66,13 @@
 
 				renderer = new THREE.WebGLRenderer({antialias: true, alpha: true});
 				renderer.setSize( window.innerWidth, window.innerHeight );
+
+				renderer.toneMapping = THREE.ACESFilmicToneMapping;
+				renderer.outputEncoding = THREE.sRGBEncoding;
+
+				renderer.shadowMap.enabled = true;
+				renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
 				document.body.appendChild( renderer.domElement);
 
 				domEvents = new THREEx.DomEvents(camera,renderer.domElement);
@@ -73,13 +89,26 @@
 
 				directionalLight = new THREE.DirectionalLight( 0xffffff, 0.5 );
 				directionalLight.position.set( 3, 4, 5 );
+				directionalLight.castShadow=true;
+
+				directionalLight.shadow.mapSize.width = 1024;  // default
+				directionalLight.shadow.mapSize.height = 1024; // default
+				directionalLight.shadow.camera.near = 0.01;    // default
+				directionalLight.shadow.camera.far = 50;     // default
+				directionalLight.shadow.camera.left = -10;
+				directionalLight.shadow.camera.bottom = -10;
+				directionalLight.shadow.camera.top = 10;
+				directionalLight.shadow.camera.right = 10;
+				directionalLight.shadow.radius = 2;
+				directionalLight.shadow.bias = -0.0001;
+
+
 				scene.add( directionalLight );
 
 				pointLight = new THREE.PointLight( 0xffffff, 2, 100, 20 );
 				pointLight.position.set(0,2,0);
 				camera.add(pointLight);
 				scene.add(camera);
-				//scene.add(pointLight);
 								
 				// envmap
 				var genCubeUrls = function ( prefix, postfix ) {
@@ -96,6 +125,7 @@
 					env = cubeTexture;
 
 				 } );
+				 scene.environment = env;
 				 
 			 	var geometry = new THREE.CylinderGeometry(1,1,64,64);
 				var material = new THREE.MeshStandardMaterial( {
@@ -103,20 +133,93 @@
 			 			metalness: 0,
 			 			roughness: 0.5,
 			 			envMap: env,
-			 			envMapIntensity: THREE.envMapIntensity * 100,
+			 			envMapIntensity: 1,
 			 		} );
 				cylinder = new THREE.Mesh( geometry, material );
-				cylinder.castShadow = true;
-				cylinder.receiveShadow = true;
+				cylinder.visible = false;
 				scene.add( cylinder);
 
-				domEvents.addEventListener(cylinder, 'mousedown', event => GrabCylinder(cylinder));
-				domEvents.addEventListener(cylinder, 'mouseup', event => LetGoOfCylinder(cylinder));
-				domEvents.addEventListener(cylinder, 'mouseover', event => {
+				var geometry = new THREE.IcosahedronGeometry(0.4,2);
+				var material = new THREE.MeshBasicMaterial( {
+						 color: 0xffffff,
+						 alphaTest: 1.1
+			 		} );
+				handle = new THREE.Mesh(geometry, material);
+				handle.position.y = 0.4;
+				holdPower = 0;
+				//handle.visible = false;
+
+				var geometry = new THREE.IcosahedronGeometry(0.6,3);
+				var material = new THREE.MeshPhysicalMaterial( {
+						color: 0xffcc66,
+						metalness: 0.9,
+			 			roughness: 0.333,
+			 			envMap: env,
+			 			envMapIntensity: 10,
+					 } );
+				
+				ball = new THREE.Mesh();
+
+
+
+				var tempmat;
+				rouletteModel = new THREE.Mesh();
+
+				var loader = new THREE.GLTFLoader().setPath( '3D/' );
+				loader.load( 'Roulette.glb', function ( gltf ) {
+
+					gltf.scene.traverse( function ( child ) {
+						
+						if ( child.isMesh ) {
+							
+							child.material.envMap = env;
+							child.material.envMapIntensity = 1;
+							child.castShadow = true;
+							child.receiveShadow = true;
+							child.parent = rouletteModel;
+						}
+					} );					
+					rouletteModel.add( gltf.scene );
+					rouletteModel.add(handle);
+				})
+
+				scene.add(rouletteModel);
+				rouletteModel.parent = cylinder;
+
+				loader.load( 'Ball.glb', function ( gltf ) {
+
+					gltf.scene.traverse( function ( child ) {
+						
+						if ( child.isMesh ) {
+							child.material.envMap = env;
+							child.material.envMapIntensity = 1;
+							child.castShadow = true;
+							child.receiveShadow = true;
+							child.parent = ball;
+						}
+					} );					
+					ball.add( gltf.scene );
+					})
+
+				ball.position.y = 10;
+				ball.visible = false;
+
+				
+				ball.castShadow = true;
+				ball.receiveShadow = true;
+				scene.add(ball);
+
+				
+
+				domEvents.addEventListener(rouletteModel, 'mousedown', event => GrabCylinder(cylinder));
+				
+				domEvents.addEventListener(rouletteModel, 'mouseover', event => {
 					console.log(cylinder.rotation.y);
 				});
-				document.addEventListener('mouseup', event => LetGoOfCylinder(cylinder));
+				document.addEventListener('mouseup', event => LetGo());
 
+				domEvents.addEventListener(handle, 'mousedown', event => GrabHandle(handle));
+				
 				//domEvents.addEventListener(cylinder, 'touchstart', event => GrabCylinder(cylinder));
 				//domEvents.addEventListener(cylinder, 'touchend', event => LetGoOfCylinder(cylinder));
 				//domEvents.addEventListener(cylinder, 'touchcancel', event => LetGoOfCylinder(cylinder));
@@ -124,10 +227,22 @@
 			}
 
 			function render() {
+				if (isSpinning){
+					if (Math.abs(mouseX - 0) > 0.333){
+
+						camera.translateZ(mouseX*0.25);
+						//camera.translateZ(mouseY);
+					}
+					if (Math.abs(mouseY - 0) > 0.333){
+						camera.translateY(-mouseY*0.5);
+						//camera.translateZ(mouseY);
+					}
+					camera.lookAt(0,0,0);
+					camera.translateX(-0.02);
+					ball.rotation.z = cylinder.rotation.y * 8;
+				}
 				requestAnimationFrame( render );
-
 				//console.log(photos);
-
 				renderer.render( scene, camera );
 			};
 
@@ -168,9 +283,13 @@
 					texture.magFilter = THREE.NearestFilter;
 					texture.minFilter = THREE.LinearMipmapNearestFilter;
 					texture.anisotropy = 16;
+					texture.encoding = THREE.sRGBEncoding; 
 					var material = new THREE.MeshPhysicalMaterial( {
 						color: 0xffffff,
-						map: texture
+						map: texture,
+						metalness: 0,
+			 			envMap: env,
+						toneMapped: false
 			 		} );
 					var card = new THREE.Mesh( geometry, material );
 					scene.add(card);
@@ -179,7 +298,17 @@
 
 				radius = (3 * gallery.length) / (2 * Math.PI);
 
-				//cylinder.scale.x = cylinder.scale.x * radius;
+				rouletteModel.scale.x = rouletteModel.scale.x * radius;
+				rouletteModel.scale.y = rouletteModel.scale.y * radius;
+				rouletteModel.scale.z = rouletteModel.scale.z * radius;
+
+				ball.scale.x = ball.scale.x * radius;
+				ball.scale.y = ball.scale.y * radius;
+				ball.scale.z = ball.scale.z * radius;
+
+
+				ball.position.z = radius * 1.12;
+				console.log(ball);
 
 				Unzoom();
 
@@ -221,75 +350,162 @@
 
 			function GrabCard(card){
 				//console.log(card);
+				if(!isSpinning)
+				{
 				gsap.to(card.position, .5, {y : 0.5, ease: Expo.easeOut});
+				}
 			}
 
 			function LetGoOfCard(card){
 				//console.log(card);
-				gsap.to(card.position, .5, {y : 0, ease: Expo.easeOut});
+				if(!isSpinning)
+				{
+					gsap.to(card.position, .5, {y : 0, ease: Expo.easeOut});
+				}
 			}
 
 			function GrabCylinder(cylinder){
+				if(!isSpinning)
+				{
 				//console.log(cylinder);
 				//gsap.to(cylinder.rotation, 2, {y : cylinder.rotation.y + 1, ease: Expo.easeOut});
 				holdCylinder = true;
+				holdHandle = false;
 				//cylinder.rotation.y = THREE.Math.lerp(cylinder.rotation.y, mousex, 0.5);
+				}
 				
 			}
 
-			function LetGoOfCylinder(cylinder){
-				//console.log(cylinder);
-				//gsap.to(cylinder.rotation, 2, {y : cylinder.rotation.y + 1, ease: Expo.easeOut});
-				NormalizeRotation();
+			function GrabHandle(handle){
+				if(!isSpinning)
+				{
+
+				holdHandle = true;
 				holdCylinder = false;
-				var angle = (1 / (gallery.length/2)) * Math.PI;
-				var cylinderDestination = Math.round(cylinder.rotation.y / angle) * angle;
-				gsap.to(cylinder.rotation, 0.5, {y : cylinderDestination, ease: Expo.easeOut, onComplete: NormalizeRotation()});
-				console.log(cylinderDestination);
+				holdPower = 0;	
+				}			
+			}
+			function LetGo(){
+				if(!isSpinning)
+				{
+					LetGoOfHandle(handle);
+					LetGoOfCylinder(cylinder);
+				}
+			}
+
+			function LetGoOfCylinder(cylinder){
+				if(!isSpinning)
+				{
+					NormalizeRotation();
+					holdCylinder = false;
+					var angle = (1 / (gallery.length/2)) * Math.PI;
+					var cylinderDestination = Math.round(cylinder.rotation.y / angle) * angle;
+					gsap.to(cylinder.rotation, 0.5, {y : cylinderDestination, ease: Expo.easeOut, onComplete: NormalizeRotation()});
+					console.log(cylinderDestination);
+				}
+			}
+
+			function LetGoOfHandle(handle){
+				if(!isSpinning)
+				{
+
+					holdHandle = false;
+					if (holdPower > 0.1) Spin()
+					holdPower = 0;
+				}
 			}
 
 			function ZoomSwap(card){
-				//console.log(Math.PI - Math.abs( Math.abs(cylinder.rotation.y - (card.name *1.0)) - Math.PI));
-				if (zoom){
-					Unzoom();
-					//gsap.to(cylinder.rotation, 0.5, {y : card.name * -1, ease: Expo.easeOut});
-				}
-				else{
-					if (Math.abs(Math.PI - Math.abs( Math.abs(-cylinder.rotation.y - (card.name *1.0)) - Math.PI)) < 0.01) Zoom()
-					else if (Math.abs(Math.PI - Math.abs( Math.abs(-cylinder.rotation.y - (card.name *1.0)) - Math.PI)) <= Math.abs(Math.PI - Math.abs( Math.abs(-cylinder.rotation.y - (card.name *1.0) - Math.PI*2) - Math.PI))){
-						NormalizeRotation();
-						gsap.to(cylinder.rotation, 0.5, {y :  -1 * card.name + Math.PI * 2, ease: Expo.easeOut, onComplete: NormalizeRotation()});
-					}else{
-						NormalizeRotation();
-						gsap.to(cylinder.rotation, 0.5, {y :  -1 * card.name + Math.PI * 2, ease: Expo.easeOut, onComplete: NormalizeRotation()});
+				if(!isSpinning)
+				{
+					//console.log(Math.PI - Math.abs( Math.abs(cylinder.rotation.y - (card.name *1.0)) - Math.PI));
+					if (zoom ){
+						Unzoom();
+						//gsap.to(cylinder.rotation, 0.5, {y : card.name * -1, ease: Expo.easeOut});
+					}
+					else{
+						if (Math.abs(Math.PI - Math.abs( Math.abs(-cylinder.rotation.y - (card.name *1.0)) - Math.PI)) < 0.01) Zoom()
+						else if (Math.abs(Math.PI - Math.abs( Math.abs(-cylinder.rotation.y - (card.name *1.0)) - Math.PI)) <= Math.abs(Math.PI - Math.abs( Math.abs(-cylinder.rotation.y - (card.name *1.0) - Math.PI*2) - Math.PI))){
+							NormalizeRotation();
+							gsap.to(cylinder.rotation, 0.5, {y :  -1 * card.name + Math.PI * 2, ease: Expo.easeOut, onComplete: NormalizeRotation()});
+						}else{
+							NormalizeRotation();
+							gsap.to(cylinder.rotation, 0.5, {y :  -1 * card.name + Math.PI * 2, ease: Expo.easeOut, onComplete: NormalizeRotation()});
+						}
 					}
 				}
 			}
 
 			function Unzoom (){
-				NormalizeRotation();
-				gsap.to(camera.position, 0.5, {z : radius * Math.sqrt(3) + Math.PI , ease: Expo.easeOut, onComplete: NormalizeRotation()});
-				camera.fov = Math.atan( Math.tan( 60 * Math.PI / 360 ) / camera.aspect ) * 360 / Math.PI;
-				camera.updateProjectionMatrix();
-				zoom = false;
+				if(!isSpinning)
+				{
+					NormalizeRotation();
+					gsap.to(camera.position, 0.5, {z : radius * Math.sqrt(3) + Math.PI , y:0, x:0, ease: Expo.easeOut, onComplete: NormalizeRotation()});
+					gsap.to(camera.rotation, 0.5, {z : 0, y:0,x:0, ease: Expo.easeOut});
+					camera.fov = Math.atan( Math.tan( 60 * Math.PI / 360 ) / camera.aspect ) * 360 / Math.PI;
+					camera.updateProjectionMatrix();
+					zoom = false;
+				}
 			}
 
 			function Zoom(){
-				NormalizeRotation();
-				gsap.to(camera.position, 0.5, {z : radius + 6.53, ease: Expo.easeOut, onComplete: NormalizeRotation()});
-				camera.fov = 30;
+				if(!isSpinning)
+				{
+					NormalizeRotation();
+					gsap.to(camera.position, 0.5, {z : radius + 6.53, y:0,x:0, ease: Expo.easeOut, onComplete: NormalizeRotation()});
+					gsap.to(camera.rotation, 0.5, {z : 0, y:0,x:0, ease: Expo.easeOut});
+					camera.fov = 30;
+					camera.updateProjectionMatrix();
+					zoom = true;
+				}
+			}
+
+			function SpinUnzoom (){
+				if(isSpinning)
+				{
+				gsap.to(camera.position, 1, {z : radius * Math.sqrt(3) * 1.3 + Math.PI , y : radius * 2.1, x : radius, ease: Expo.easeOut, onComplete: NormalizeRotation()});
+				camera.lookAt(0,0,0);
+				camera.fov = Math.atan( Math.tan( 60 * Math.PI / 360 ) / camera.aspect ) * 360 / Math.PI;
 				camera.updateProjectionMatrix();
-				zoom = true;
+				zoom = false;
+				}
 			}
 
 			function NormalizeRotation(){
-				if (Math.abs(cylinder.rotation.y) <= 0.01) cylinder.rotation.y = 0;
-				if (Math.abs(Math.PI - Math.abs( Math.abs(-cylinder.rotation.y - (Math.PI *2)) - Math.PI)) < 0.01) cylinder.rotation.y = 0;
-				while (cylinder.rotation.y < 0) cylinder.rotation.y = cylinder.rotation.y + Math.PI * 2;
-				while (cylinder.rotation.y > Math.PI *2) cylinder.rotation.y = cylinder.rotation.y - Math.PI * 2;
-				if (Math.abs(cylinder.rotation.y) <= 0.01) cylinder.rotation.y = 0;
-				if (Math.abs(Math.PI - Math.abs( Math.abs(-cylinder.rotation.y - (Math.PI *2)) - Math.PI)) < 0.01) cylinder.rotation.y = 0;
-				console.log("normalized");
+				
+					if (Math.abs(cylinder.rotation.y) <= 0.01) cylinder.rotation.y = 0;
+					if (Math.abs(Math.PI - Math.abs( Math.abs(-cylinder.rotation.y - (Math.PI *2)) - Math.PI)) < 0.01) cylinder.rotation.y = 0;
+					while (cylinder.rotation.y < 0) cylinder.rotation.y = cylinder.rotation.y + Math.PI * 2;
+					while (cylinder.rotation.y > Math.PI *2) cylinder.rotation.y = cylinder.rotation.y - Math.PI * 2;
+					if (Math.abs(cylinder.rotation.y) <= 0.01) cylinder.rotation.y = 0;
+					if (Math.abs(Math.PI - Math.abs( Math.abs(-cylinder.rotation.y - (Math.PI *2)) - Math.PI)) < 0.01) cylinder.rotation.y = 0;
+					console.log("normalized");
+
+			}
+
+			function Spin(){
+				isSpinning = true;
+				console.log("Spiiin speed:");
+				console.log(holdPower);
+				var spinningTime = holdPower * 30;
+				gsap.to(cylinder.rotation, spinningTime, {y :  spinningTime * Math.PI, ease: Expo.easeOut});
+				//gsap.to(ball.rotation, spinningTime, {z :  spinningTime * Math.PI * radius * 3, ease: Expo.easeOut});
+				setTimeout(EndSpin, spinningTime * 1000 + 3000);
+				SpinUnzoom();
+
+				gsap.to(ball.position, 0.5, {y :  -1.45, ease: Expo.easeIn});
+				ball.visible = true;
+			}
+			function EndSpin(){
+				isSpinning = false;
+				LetGoOfCylinder(cylinder);
+				Zoom();
+
+				setTimeout(function(){
+					gsap.to(ball.position, 0.5, {y :  10, ease: Expo.easeIn, onComplete: function(){
+						ball.visible = false;
+					}});
+				}, 1000);
 			}
 		</script>
 	</body>
