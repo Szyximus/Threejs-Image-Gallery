@@ -15,7 +15,7 @@
   "author": "sjakobczyk",
   "license": "MIT",
   "engines":{
-	"node": "0.10.15.3",
+	"node": "10.15.3",
 	"npm": "6.4.1"
 	},
   "dependencies": {
