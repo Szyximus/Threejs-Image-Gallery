@@ -1,6 +1,19 @@
 {
   "requires": true,
   "lockfileVersion": 1,
+  "name": "node-example",
+  "version": "1.0.0",
+  "description": "This example is so cool.",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "heroku",
+    "threejs"
+  ],
+  "author": "sjakobczyk",
+  "license": "MIT",
   "dependencies": {
     "connect": {
       "version": "3.7.0",
