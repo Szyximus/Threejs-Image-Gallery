@@ -228,8 +228,9 @@
 
 				domEvents.addEventListener(handle, 'mousedown', event => GrabHandle(handle));
 				
-				//domEvents.addEventListener(cylinder, 'touchstart', event => GrabCylinder(cylinder));
-				//domEvents.addEventListener(cylinder, 'touchend', event => LetGoOfCylinder(cylinder));
+				domEvents.addEventListener(rouletteModel, 'touchstart', event => GrabCylinder(cylinder));
+				document.addEventListener('touchend', event => LetGo());
+				domEvents.addEventListener(handle, 'touchstart', event => GrabHandle(handle));
 				//domEvents.addEventListener(cylinder, 'touchcancel', event => LetGoOfCylinder(cylinder));
 
 			}
